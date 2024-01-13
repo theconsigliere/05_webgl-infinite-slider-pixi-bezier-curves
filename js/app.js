@@ -1,115 +1,60 @@
-import * as THREE from "three"
-import fragment from "./shader/fragment.glsl"
-import vertex from "./shader/vertex.glsl"
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js"
-import gui from "lil-gui"
-import gsap from "gsap"
+import * as PIXI from "pixi.js"
+import image from "../img/image.jpg"
 
-export default class Sketch {
-  constructor(options) {
-    this.scene = new THREE.Scene()
+class Sketch {
+  constructor() {
+    this.width = window.innerWidth
+    this.height = window.innerHeight
+    this.app = new PIXI.Application({
+      backgroundColor: 0x1099bb,
+      resolution: window.devicePixelRatio || 1,
+      resizeTo: window,
+    })
 
-    this.container = options.dom
-    this.width = this.container.offsetWidth
-    this.height = this.container.offsetHeight
-    this.renderer = new THREE.WebGLRenderer()
-    this.renderer.setPixelRatio(window.devicePixelRatio)
-    this.renderer.setSize(this.width, this.height)
-    this.renderer.setClearColor(0xeeeeee, 1)
-    this.renderer.outputEncoding = THREE.sRGBEncoding
+    document.body.appendChild(this.app.view)
+    this.app.view.style.width = this.width + "px"
+    this.app.view.style.height = this.height + "px"
 
-    this.container.appendChild(this.renderer.domElement)
+    this.container = new PIXI.Container()
 
-    this.camera = new THREE.PerspectiveCamera(
-      70,
-      window.innerWidth / window.innerHeight,
-      0.001,
-      1000
-    )
+    this.app.stage.addChild(this.container)
 
-    // var frustumSize = 10;
-    // var aspect = window.innerWidth / window.innerHeight;
-    // this.camera = new THREE.OrthographicCamera( frustumSize * aspect / - 2, frustumSize * aspect / 2, frustumSize / 2, frustumSize / - 2, -1000, 1000 );
-    this.camera.position.set(0, 0, 2)
-    this.controls = new OrbitControls(this.camera, this.renderer.domElement)
-    this.time = 0
-
-    this.isPlaying = true
-
-    this.addObjects()
+    this.add() // graphics
     this.resize()
-    this.render()
     this.setupResize()
-    // this.settings();
+    this.render()
   }
 
-  settings() {
-    let that = this
-    this.settings = {
-      progress: 0,
-    }
-    this.gui = new dat.GUI()
-    this.gui.add(this.settings, "progress", 0, 1, 0.01)
+  add() {
+    let block = new PIXI.Sprite(PIXI.Texture.WHITE)
+    block.tint = 0xff0000
+    block.width = 100
+    block.height = 100
+
+    this.container.addChild(block)
+  }
+
+  resize() {
+    this.width = window.innerWidth
+    this.height = window.innerHeight
+    this.quad.scale.set(this.width / 200, this.height / 200)
+    this.quad.position.set(this.width / 2, this.height / 2)
+    this.app.view.style.width = this.width + "px"
+    this.app.view.style.height = this.height + "px"
   }
 
   setupResize() {
     window.addEventListener("resize", this.resize.bind(this))
   }
 
-  resize() {
-    this.width = this.container.offsetWidth
-    this.height = this.container.offsetHeight
-    this.renderer.setSize(this.width, this.height)
-    this.camera.aspect = this.width / this.height
-    this.camera.updateProjectionMatrix()
-  }
-
-  addObjects() {
-    let that = this
-    this.material = new THREE.ShaderMaterial({
-      extensions: {
-        derivatives: "#extension GL_OES_standard_derivatives : enable",
-      },
-      side: THREE.DoubleSide,
-      uniforms: {
-        time: { type: "f", value: 0 },
-        resolution: { type: "v4", value: new THREE.Vector4() },
-        uvRate1: {
-          value: new THREE.Vector2(1, 1),
-        },
-      },
-      // wireframe: true,
-      // transparent: true,
-      vertexShader: vertex,
-      fragmentShader: fragment,
-    })
-
-    this.geometry = new THREE.PlaneGeometry(1, 1, 1, 1)
-
-    this.plane = new THREE.Mesh(this.geometry, this.material)
-    this.scene.add(this.plane)
-  }
-
-  stop() {
-    this.isPlaying = false
-  }
-
-  play() {
-    if (!this.isPlaying) {
-      this.render()
-      this.isPlaying = true
-    }
-  }
-
   render() {
-    if (!this.isPlaying) return
-    this.time += 0.05
-    this.material.uniforms.time.value = this.time
-    requestAnimationFrame(this.render.bind(this))
-    this.renderer.render(this.scene, this.camera)
+    this.app.ticker.add((delta) => {
+      // rotate the container!
+      // use delta to create frame-independent transform
+      // container.rotation -= 0.01 * delta;
+      console.log(delta)
+    })
   }
 }
 
-new Sketch({
-  dom: document.getElementById("container"),
-})
+new Sketch()
