@@ -1,7 +1,9 @@
 {
   "type": "module",
   "scripts": {
-    "dev": "vite"
+    "install": "yarn install",
+    "dev": "vite",
+    "prod": "rm -r node_modules/"
   },
   "dependencies": {
     "gsap": "^3.12.2",
