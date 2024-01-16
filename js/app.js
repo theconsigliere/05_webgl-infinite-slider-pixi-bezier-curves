@@ -1,12 +1,15 @@
 import * as PIXI from "pixi.js"
 import img from "../img/image.jpg"
+import displace from "../img/disp.png"
+import vertex from "./shader/vertex.glsl"
+import fragment from "./shader/fragment.glsl"
 
 class Sketch {
   constructor() {
     this.width = window.innerWidth
     this.height = window.innerHeight
     this.app = new PIXI.Application({
-      backgroundColor: 0x1099bb,
+      backgroundColor: 0x000000,
       resolution: window.devicePixelRatio || 1,
       resizeTo: window,
     })
@@ -20,6 +23,7 @@ class Sketch {
     this.app.view.style.height = this.height + "px"
 
     this.container = new PIXI.Container()
+    this.container.rotation = -0.1
 
     this.app.stage.addChild(this.container)
 
@@ -31,7 +35,7 @@ class Sketch {
   }
 
   scrollEvent() {
-    document.addEventListener("wheel", (e) => {
+    document.addEventListener("mousewheel", (e) => {
       this.scrollTarget = e.wheelDelta / 3
     })
   }
@@ -42,29 +46,46 @@ class Sketch {
 
     this.objs = []
     this.margin = 300
+    this.wholeHeight = this.slides.length * this.margin
 
     // create all slides with masks in the loop
     this.slides.forEach((slide, i) => {
       // get aspect ration of image
       let localContainer = new PIXI.Container()
       let aspect = 1.5
-      let block = new PIXI.Sprite(PIXI.Texture.WHITE)
-      block.tint = 0xff0000
-      block.width = 100
-      block.height = 100
 
       // center local container
       localContainer.pivot.x = -this.width / 2
-      localContainer.pivot.y = -this.height / 2 - i * this.margin
-
-      this.container.addChild(block)
+      // localContainer.pivot.y = -this.height / 2 - i * this.margin
 
       let image = PIXI.Sprite.from(img)
       image.width = 1000
       image.height = image.width / aspect
-
       // center image inside its container
       image.anchor.set(0.5)
+
+      //add shaders
+
+      let uniforms = {
+        uPower: 0,
+        uDirection: 1,
+        uDisplacement: PIXI.Sprite.from(displace).texture,
+        uMap: image.texture,
+        filterMatrix: new PIXI.Matrix(),
+      }
+
+      let displacementFilter = new PIXI.Filter(vertex, fragment, uniforms)
+
+      // fix the position of the image in the shaders to be center aligned
+      displacementFilter.apply = function (filtermanager, input, output, e) {
+        this.uniforms.filterMatrix = filtermanager.calculateSpriteMatrix(
+          uniforms.filterMatrix,
+          image
+        )
+        filtermanager.applyFilter(this, input, output, e)
+      }
+
+      image.filters = [displacementFilter]
 
       // create mask for image slide
       const mask = new PIXI.Graphics()
@@ -81,6 +102,8 @@ class Sketch {
         container: localContainer,
         mask: mask,
         image: image,
+        uniforms: uniforms,
+        position: i,
       })
     })
   }
@@ -92,9 +115,12 @@ class Sketch {
 
       let maskX = 450
       let maskY = 100
-      let distortion = this.scroll
-      //let distortion = this.scroll* 5
+
+      let distortion = this.scroll * 5
       let coefficient = 0.0
+
+      slide.uniforms.uDirection = Math.sign(distortion) // either 1 or -1
+      slide.uniforms.uPower = Math.abs(distortion * 0.01)
 
       // create an array of points to create a rectangle
       let maskPoints = [
@@ -115,6 +141,11 @@ class Sketch {
         maskPoints[3].x -= Math.abs(distortion) * 0.4 // right bottom coordinates
         maskPoints[3].y -= Math.abs(distortion) * 0.4 // right bottom coordinates
       } else {
+        maskPoints[0].x -= Math.abs(distortion) * 0.4 // left bottom coordinates
+        maskPoints[0].y += Math.abs(distortion) * 0.4 // left bottom coordinates
+
+        maskPoints[1].x += Math.abs(distortion) * 0.4 // right bottom coordinates
+        maskPoints[1].y += Math.abs(distortion) * 0.4 // right bottom coordinates
       }
 
       let controlPoints = [
@@ -172,6 +203,14 @@ class Sketch {
         maskPoints[0].x,
         maskPoints[0].y
       )
+
+      // update position
+      slide.container.position.y =
+        ((slide.position * this.margin +
+          this.currentScroll +
+          this.wholeHeight) %
+          this.wholeHeight) -
+        this.margin
     })
   }
 
@@ -190,11 +229,15 @@ class Sketch {
 
   render() {
     this.app.ticker.add((delta) => {
-      this.scroll -= (this.scrollTarget - this.scroll) * 0.1
+      this.scroll -= (this.scroll - this.scrollTarget) * 0.1
       this.scroll *= 0.9
+      this.scrollTarget *= 0.9
       this.direction = Math.sign(this.scroll)
 
+      this.currentScroll += this.scroll
+
       this.updateAllTheThings()
+
       // rotate the container!
       // use delta to create frame-independent transform
       // container.rotation -= 0.01 * delta;
